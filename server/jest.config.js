@@ -1,0 +1,14 @@
+/** @type {import('jest').Config} */
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  setupFilesAfterEnv: ['<rootDir>/src/test/jest-setup.ts'],
+  roots: ['<rootDir>/src'],
+  testMatch: ['**/*.test.ts'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.test.ts',
+    '!src/index.ts',
+  ],
+  coverageDirectory: 'coverage',
+};

@@ -1,0 +1,22 @@
+{
+  "name": "campus-event-finder",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "test:client": "npm run test --workspace=client",
+    "test:server": "npm run test --workspace=server",
+    "test:shared": "npm run test --workspace=shared",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "dev": "npm run dev --workspaces --parallel"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

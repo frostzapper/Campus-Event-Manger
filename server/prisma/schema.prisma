@@ -1,0 +1,166 @@
+// Campus Event Finder — PostgreSQL schema (Prisma)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventStatus {
+  published
+  draft
+}
+
+enum EventSubtype {
+  sports
+  technical
+  cultural
+  other
+}
+
+enum RegistrationStatus {
+  confirmed
+  cancelled
+}
+
+enum NotificationType {
+  new_event
+  registration
+  event_soon
+  event_updated
+  event_cancelled
+  new_follower
+}
+
+/// Application user (student account). Maps to API `Student` / JWT `studentId`.
+model User {
+  id           String   @id
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name")
+  avatar       String?
+  bio          String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  createdEvents      Event[]               @relation("EventCreator")
+  sportsSessions     SportsSession[]
+  registrations      EventRegistration[]
+  savedEvents        SavedEvent[]
+  notifications      Notification[]        @relation("NotificationUser")
+  reminderPrefs      ReminderPrefs?
+
+  followersLinks Follow[] @relation("FollowingLinks")
+  followerLinks  Follow[] @relation("FollowerLinks")
+}
+
+model Event {
+  id                   String       @id
+  title                String
+  description          String       @default("") @db.Text
+  /// YYYY-MM-DD (matches shared `Event.date`)
+  date                 String
+  time                 String
+  locationName         String       @map("location_name")
+  campusAddress        String       @map("campus_address")
+  price                Float?
+  entryRequirements    String?      @map("entry_requirements") @db.Text
+  deepLinkUrl          String?      @map("deep_link_url")
+  creatorId            String?      @map("creator_id")
+  tags                 Json         @default("[]")
+  maxParticipants      Int?         @map("max_participants")
+  registrationDeadline String?      @map("registration_deadline")
+  bannerImage          String?      @map("banner_image") @db.Text
+  status               EventStatus  @default(published)
+  isOnline             Boolean      @default(false) @map("is_online")
+  subtype              EventSubtype?
+
+  creator       User?                 @relation("EventCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  registrations EventRegistration[]
+  savedBy       SavedEvent[]
+}
+
+model EventRegistration {
+  id        String             @id @default(cuid())
+  userId    String             @map("user_id")
+  eventId   String             @map("event_id")
+  status    RegistrationStatus @default(confirmed)
+  joinedAt  DateTime           @default(now()) @map("joined_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+model SportsSession {
+  id                  String   @id
+  creatorId           String   @map("creator_id")
+  sport               String
+  participantsNeeded  Int      @map("participants_needed")
+  skillLevel          String   @default("") @map("skill_level")
+  scheduledAt         DateTime @map("scheduled_at")
+  description         String   @db.Text
+  isActive            Boolean  @default(true) @map("is_active")
+  createdAt           DateTime @default(now()) @map("created_at")
+  /// Optional venue hint (API extension; maps to UI later)
+  location            String?
+
+  creator User @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId])
+}
+
+model Follow {
+  followerId  String @map("follower_id")
+  followingId String @map("following_id")
+
+  follower  User @relation("FollowerLinks", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("FollowingLinks", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model Notification {
+  id        String           @id
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  body      String           @db.Text
+  eventId   String?          @map("event_id")
+  actorId   String?          @map("actor_id")
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model SavedEvent {
+  userId  String @map("user_id")
+  eventId String @map("event_id")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([userId, eventId])
+}
+
+model ReminderPrefs {
+  userId    String  @id @map("user_id")
+  enabled   Boolean @default(true)
+  inApp     Boolean @default(true) @map("in_app")
+  email     Boolean @default(true)
+  remind24h Boolean @default(true) @map("remind_24h")
+  remind1h  Boolean @default(true) @map("remind_1h")
+  remindNow Boolean @default(true) @map("remind_now")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
