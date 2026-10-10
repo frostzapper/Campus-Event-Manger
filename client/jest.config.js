@@ -4,7 +4,7 @@ module.exports = {
   testEnvironment: 'jsdom',
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
-  setupFilesAfterFramework: ['@testing-library/jest-dom/extend-expect'],
+  setupFilesAfterEnv: ['@testing-library/jest-dom'],
   collectCoverageFrom: [
     'src/**/*.ts',
     'src/**/*.tsx',

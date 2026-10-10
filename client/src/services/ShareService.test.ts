@@ -123,11 +123,11 @@ describe('Property 19: Share content composition completeness', () => {
   const nonEmptyString = fc.string({ minLength: 1, maxLength: 100 });
 
   // Arbitrary for a valid Event object with optional deepLinkUrl
-  const eventArbitrary = fc.record({
+  const eventArbitrary: fc.Arbitrary<Event> = fc.record({
     id: nonEmptyString,
     title: nonEmptyString,
     description: nonEmptyString,
-    subtype: fc.constantFrom('sports', 'technical', 'cultural', 'other'),
+    subtype: fc.constantFrom('sports', 'technical', 'cultural', 'other') as fc.Arbitrary<'sports' | 'technical' | 'cultural' | 'other'>,
     date: fc.date({ min: new Date('2020-01-01'), max: new Date('2030-12-31') }).map(
       (d) => d.toISOString().slice(0, 10)
     ),

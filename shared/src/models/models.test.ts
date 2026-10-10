@@ -86,6 +86,7 @@ describe('SessionPost model', () => {
       scheduledAt: '2024-09-20T15:00:00Z',
       description: 'Looking for 3 more players for a pickup game',
       isActive: true,
+      createdAt: '2024-09-01T00:00:00Z',
     };
     expect(post.participantsNeeded).toBeGreaterThanOrEqual(1);
     expect(post.isActive).toBe(true);
@@ -102,6 +103,7 @@ describe('SessionPost model', () => {
       scheduledAt: fc.date().map((d) => d.toISOString()),
       description: fc.string({ minLength: 1 }),
       isActive: fc.boolean(),
+      createdAt: fc.date().map((d) => d.toISOString()),
     });
 
     fc.assert(

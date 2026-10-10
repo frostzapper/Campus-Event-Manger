@@ -36,6 +36,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByRole('heading', { name: /Spring Gala/i })).toBeInTheDocument();
@@ -48,6 +50,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByText(/A detailed description of the event\./)).toBeInTheDocument();
@@ -60,6 +64,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByText(/2099-07-04/)).toBeInTheDocument();
@@ -72,6 +78,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByText(/14:30/)).toBeInTheDocument();
@@ -84,6 +92,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByText(/Science Building/)).toBeInTheDocument();
@@ -96,6 +106,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByText(/456 University Ave/)).toBeInTheDocument();
@@ -110,6 +122,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByText(/Price:.*\$10/)).toBeInTheDocument();
@@ -122,6 +136,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.queryByText(/Price:/)).not.toBeInTheDocument();
@@ -134,6 +150,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByText(/Price:.*\$0/)).toBeInTheDocument();
@@ -148,6 +166,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByText(/Must be a club member/)).toBeInTheDocument();
@@ -160,6 +180,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.queryByText(/Entry requirements:/)).not.toBeInTheDocument();
@@ -174,6 +196,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByRole('button', { name: /share event/i })).toBeInTheDocument();
@@ -188,6 +212,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={onShare}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       fireEvent.click(screen.getByRole('button', { name: /share event/i }));
@@ -202,6 +228,8 @@ describe('EventDetailView', () => {
           isOnCampus={false}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByRole('button', { name: /share event/i })).toBeInTheDocument();
@@ -214,6 +242,8 @@ describe('EventDetailView', () => {
           isOnCampus={null}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByRole('button', { name: /share event/i })).toBeInTheDocument();
@@ -228,6 +258,8 @@ describe('EventDetailView', () => {
           isOnCampus={false}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByRole('button', { name: /get directions/i })).toBeInTheDocument();
@@ -240,6 +272,8 @@ describe('EventDetailView', () => {
           isOnCampus={null}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.getByRole('button', { name: /get directions/i })).toBeInTheDocument();
@@ -252,6 +286,8 @@ describe('EventDetailView', () => {
           isOnCampus={true}
           onGetDirections={jest.fn()}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       expect(screen.queryByRole('button', { name: /get directions/i })).not.toBeInTheDocument();
@@ -266,6 +302,8 @@ describe('EventDetailView', () => {
           isOnCampus={false}
           onGetDirections={onGetDirections}
           onShare={jest.fn()}
+          isAuthenticated={false}
+          onRegister={jest.fn()}
         />
       );
       fireEvent.click(screen.getByRole('button', { name: /get directions/i }));
@@ -359,6 +397,8 @@ describe('Property 5: Event detail view rendering completeness (Requirements 3.1
             isOnCampus={true}
             onGetDirections={jest.fn()}
             onShare={jest.fn()}
+            isAuthenticated={false}
+            onRegister={jest.fn()}
           />
         );
 
@@ -398,6 +438,8 @@ describe('Property 5: Event detail view rendering completeness (Requirements 3.1
             isOnCampus={true}
             onGetDirections={jest.fn()}
             onShare={jest.fn()}
+            isAuthenticated={false}
+            onRegister={jest.fn()}
           />
         );
 
@@ -427,6 +469,8 @@ describe('Property 5: Event detail view rendering completeness (Requirements 3.1
             isOnCampus={true}
             onGetDirections={jest.fn()}
             onShare={jest.fn()}
+            isAuthenticated={false}
+            onRegister={jest.fn()}
           />
         );
 
@@ -501,6 +545,8 @@ describe('Property 6: Directions button visibility based on location context (Re
             isOnCampus={isOnCampus}
             onGetDirections={jest.fn()}
             onShare={jest.fn()}
+            isAuthenticated={false}
+            onRegister={jest.fn()}
           />
         );
 
@@ -532,6 +578,8 @@ describe('Property 6: Directions button visibility based on location context (Re
             isOnCampus={isOnCampus}
             onGetDirections={jest.fn()}
             onShare={jest.fn()}
+            isAuthenticated={false}
+            onRegister={jest.fn()}
           />
         );
 

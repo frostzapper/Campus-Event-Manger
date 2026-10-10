@@ -24,6 +24,7 @@ const seedSessions: SessionPost[] = [
     scheduledAt: new Date(Date.now() + 86400000).toISOString(),
     description: 'Looking for 3 more players for a casual 5v5 game.',
     isActive: true,
+    createdAt: new Date().toISOString(),
   },
   {
     id: 'seed-2',
@@ -34,6 +35,7 @@ const seedSessions: SessionPost[] = [
     scheduledAt: new Date(Date.now() + 2 * 86400000).toISOString(),
     description: 'Need one more person for doubles.',
     isActive: true,
+    createdAt: new Date().toISOString(),
   },
   {
     id: 'seed-3',
@@ -44,6 +46,7 @@ const seedSessions: SessionPost[] = [
     scheduledAt: new Date(Date.now() + 3 * 86400000).toISOString(),
     description: 'Session is full.',
     isActive: false,
+    createdAt: new Date().toISOString(),
   },
 ];
 
