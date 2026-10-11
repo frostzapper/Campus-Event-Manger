@@ -4,32 +4,45 @@ import { AuthSession } from '@campus-event-finder/shared';
 import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { signToken, verifyToken } from '../lib/token';
+import { registerSchema, loginSchema } from '../validation/auth';
+import { config } from '../config/env';
 
 export const authRouter = Router();
 
 const JWT_EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
 
+// Generate a dummy hash at startup for login timing attack mitigation
+// Used when email does not exist so response time doesn't reveal account existence
+let dummyHash: string;
+bcrypt.hash('dummy', config.bcryptCost).then((hash) => {
+  dummyHash = hash;
+});
+
 authRouter.post(
   '/login',
   asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body;
-
-    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
-      res.status(400).json({ message: 'email and password are required' });
+    const validation = loginSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ message: 'Validation failed', issues: validation.error.flatten() });
       return;
     }
+
+    const { email, password } = validation.data;
 
     const student = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+      where: { email },
     });
 
-    if (!student) {
-      res.status(401).json({ message: 'Invalid credentials' });
-      return;
+    let passwordValid = false;
+    if (student) {
+      passwordValid = await bcrypt.compare(password, student.passwordHash);
+    } else if (dummyHash) {
+      // Run bcrypt against dummy hash even if user doesn't exist
+      // to avoid timing attacks that reveal whether an email is registered
+      await bcrypt.compare(password, dummyHash);
     }
 
-    const passwordValid = await bcrypt.compare(password, student.passwordHash);
-    if (!passwordValid) {
+    if (!student || !passwordValid) {
       res.status(401).json({ message: 'Invalid credentials' });
       return;
     }
@@ -50,44 +63,60 @@ authRouter.post(
 authRouter.post(
   '/register',
   asyncHandler(async (req: Request, res: Response) => {
-    const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-      res.status(400).json({ message: 'name, email, and password are required' });
+    const validation = registerSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ message: 'Validation failed', issues: validation.error.flatten() });
       return;
     }
 
-    const emailLower = email.trim().toLowerCase();
+    const { email, password, displayName } = validation.data;
 
     // Check if user exists
-    const existing = await prisma.user.findUnique({ where: { email: emailLower } });
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
+      // Registration keeps returning 409 for an existing email. This is a deliberate
+      // UX tradeoff that makes the system enumerable. The per-email rate limiter
+      // (Phase 2, Task 5) mitigates brute-force enumeration attacks.
       res.status(409).json({ message: 'An account with this email already exists' });
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const studentId = 'student-' + Math.random().toString(36).substring(2, 11);
+    const { randomUUID } = await import('crypto');
+    const passwordHash = await bcrypt.hash(password, config.bcryptCost);
+    // User IDs: new users get "student-" prefix + UUID. Existing ids may use
+    // the legacy format "student-<9 random chars>". Both formats are valid.
+    const studentId = 'student-' + randomUUID();
 
-    const [user] = await prisma.$transaction([
-      prisma.user.create({
-        data: {
-          id: studentId,
-          email: emailLower,
-          displayName: name.trim(),
-          passwordHash,
-        },
-      }),
-      // Default preferences
-      prisma.reminderPrefs.create({
-        data: {
-          userId: studentId,
-          enabled: true,
-          inApp: true,
-          email: true,
-        },
-      }),
-    ]);
+    let user;
+    try {
+      [user] = await prisma.$transaction([
+        prisma.user.create({
+          data: {
+            id: studentId,
+            email,
+            displayName,
+            passwordHash,
+          },
+        }),
+        // Default preferences
+        prisma.reminderPrefs.create({
+          data: {
+            userId: studentId,
+            enabled: true,
+            inApp: true,
+            email: true,
+          },
+        }),
+      ]);
+    } catch (err) {
+      // If the email unique constraint was violated, return 409
+      // Any other database error is a server error
+      if (err instanceof Error && err.message.includes('Unique constraint failed')) {
+        res.status(409).json({ message: 'An account with this email already exists' });
+        return;
+      }
+      throw err;
+    }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
     const token = signToken(user.id);
