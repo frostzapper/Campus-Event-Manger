@@ -90,8 +90,9 @@ The API is available at `http://localhost:3000` and the frontend at `http://loca
 | `DATABASE_URL` | Yes | — | PostgreSQL connection string |
 | `JWT_SECRET` | Yes | — | JWT signing secret, minimum 32 characters |
 | `API_PORT` | No | `3000` | TCP port for the API server |
-| `NODE_ENV` | No | `development` | `development`, `test`, or `production` |
-| `AUTH_RAW_BEARER_IDS` | No | — | Test-only. Never set in production. |
+| `NODE_ENV` | No | `production` | `development`, `test`, or `production` |
+
+**Test-only authentication guard:** `AUTH_RAW_BEARER_IDS` may be set in `NODE_ENV=test` environments to enable raw student ID bearer tokens. The server refuses to start if this variable is set in production or development.
 
 ### client/.env
 
