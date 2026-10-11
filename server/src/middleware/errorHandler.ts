@@ -48,7 +48,7 @@ export function errorHandler(
   }
 
   const msg = err instanceof Error ? err.message : 'Internal server error';
-  const status = (err as { status?: number }).status ?? 500;
+  const status = err instanceof Error ? ((err as { status?: number }).status ?? 500) : 500;
   if (config.nodeEnv === 'development' && err instanceof Error) {
     res.status(status).json({ message: msg, stack: err.stack });
     return;

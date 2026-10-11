@@ -7,10 +7,9 @@ import { errorHandler } from './errorHandler';
 /**
  * errorHandler tests
  *
- * NOTE: These tests run with NODE_ENV defaulting to 'production' (config.nodeEnv).
- * The tests verify production behavior (no stack traces, generic messages for 500+ errors).
- * Development behavior (stack traces included) is verified through integration tests
- * and manual testing, as unit tests cannot override config.nodeEnv at runtime.
+ * NOTE: Jest sets NODE_ENV=test when it is unset, so these tests run in test mode
+ * by default. Tests that verify mode-specific behavior use jest.isolateModules to
+ * reload config with different NODE_ENV values before importing errorHandler.
  */
 
 function mockResponse(): Response {
@@ -118,17 +117,81 @@ describe('errorHandler', () => {
     expect(res.json).toHaveBeenCalledWith({ message: 'Internal server error' });
   });
 
-  it('returns status 500 for non-Error unknown values', () => {
+  it('non-Error values always produce status 500', () => {
+    // Plain objects with status field should be ignored - non-Error always 500
+    const err = { message: 'Client error', status: 418 };
+    errorHandler(err, req, res, next);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Internal server error' });
+  });
+
+  it('string errors produce status 500', () => {
     errorHandler('string error', req, res, next);
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ message: 'Internal server error' });
   });
 
-  it('respects custom status on error object when <500', () => {
-    const err = { message: 'Client error', status: 418 };
-    errorHandler(err, req, res, next);
-    expect(res.status).toHaveBeenCalledWith(418);
-    // Non-Error objects with status <500 still get generic message (msg is 'Internal server error')
+  it('null errors produce status 500', () => {
+    errorHandler(null, req, res, next);
+    expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ message: 'Internal server error' });
+  });
+});
+
+describe('errorHandler mode-specific behavior', () => {
+  let req: Request;
+  let res: Response;
+  let next: NextFunction;
+
+  beforeEach(() => {
+    req = {} as Request;
+    res = mockResponse();
+    next = jest.fn();
+  });
+
+  it('returns message and stack in development mode', async () => {
+    await jest.isolateModules(async () => {
+      process.env.NODE_ENV = 'development';
+      // Force reload of config and errorHandler with new NODE_ENV
+      jest.resetModules();
+      const { errorHandler: devHandler } = await import('./errorHandler');
+      
+      const err = new Error('Development error');
+      devHandler(err, req, res, next);
+      
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Development error',
+        stack: expect.stringContaining('Error: Development error'),
+      });
+    });
+  });
+
+  it('returns generic message without stack in production mode', async () => {
+    await jest.isolateModules(async () => {
+      process.env.NODE_ENV = 'production';
+      jest.resetModules();
+      const { errorHandler: prodHandler } = await import('./errorHandler');
+      
+      const err = new Error('Production error');
+      prodHandler(err, req, res, next);
+      
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Internal server error' });
+    });
+  });
+
+  it('returns generic message without stack in test mode', async () => {
+    await jest.isolateModules(async () => {
+      process.env.NODE_ENV = 'test';
+      jest.resetModules();
+      const { errorHandler: testHandler } = await import('./errorHandler');
+      
+      const err = new Error('Test error');
+      testHandler(err, req, res, next);
+      
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Internal server error' });
+    });
   });
 });
