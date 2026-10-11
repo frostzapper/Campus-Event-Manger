@@ -19,8 +19,9 @@ const envSchema = z
     API_PORT: z.coerce.number().int().positive().default(3000),
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
-      .default('development'),
+      .default('production'),
     AUTH_RAW_BEARER_IDS: z.string().optional(),
+    BCRYPT_COST: z.coerce.number().int().min(10).max(14).default(12),
   })
   .superRefine((data, ctx) => {
     if (data.AUTH_RAW_BEARER_IDS !== undefined && data.NODE_ENV !== 'test') {
@@ -213,7 +214,53 @@ describe('env config: valid configuration', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.API_PORT).toBe(3000);
-      expect(result.data.NODE_ENV).toBe('development');
+      expect(result.data.NODE_ENV).toBe('production');
+      expect(result.data.BCRYPT_COST).toBe(12);
     }
+  });
+});
+
+describe('BCRYPT_COST validation', () => {
+  it('defaults to 12', () => {
+    const parsed = envSchema.safeParse({
+      DATABASE_URL: 'postgresql://localhost/test',
+      JWT_SECRET: 'x'.repeat(32),
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.BCRYPT_COST).toBe(12);
+    }
+  });
+
+  it('accepts valid cost between 10 and 14', () => {
+    for (const cost of [10, 11, 12, 13, 14]) {
+      const parsed = envSchema.safeParse({
+        DATABASE_URL: 'postgresql://localhost/test',
+        JWT_SECRET: 'x'.repeat(32),
+        BCRYPT_COST: cost.toString(),
+      });
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data.BCRYPT_COST).toBe(cost);
+      }
+    }
+  });
+
+  it('rejects cost below 10', () => {
+    const parsed = envSchema.safeParse({
+      DATABASE_URL: 'postgresql://localhost/test',
+      JWT_SECRET: 'x'.repeat(32),
+      BCRYPT_COST: '9',
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('rejects cost above 14', () => {
+    const parsed = envSchema.safeParse({
+      DATABASE_URL: 'postgresql://localhost/test',
+      JWT_SECRET: 'x'.repeat(32),
+      BCRYPT_COST: '15',
+    });
+    expect(parsed.success).toBe(false);
   });
 });

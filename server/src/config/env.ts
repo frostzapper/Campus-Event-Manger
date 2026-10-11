@@ -15,6 +15,7 @@ const envSchema = z
       .enum(['development', 'test', 'production'])
       .default('production'),
     AUTH_RAW_BEARER_IDS: z.string().optional(),
+    BCRYPT_COST: z.coerce.number().int().min(10).max(14).default(12),
   })
   .superRefine((data, ctx) => {
     // Refuse to start if AUTH_RAW_BEARER_IDS is set outside of test.
@@ -59,6 +60,7 @@ export const config = {
   jwtSecret: data.JWT_SECRET,
   port: data.API_PORT,
   nodeEnv: data.NODE_ENV,
+  bcryptCost: data.BCRYPT_COST,
 } as const;
 
 export type Config = typeof config;
