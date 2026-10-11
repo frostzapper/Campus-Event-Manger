@@ -13,7 +13,7 @@ const envSchema = z
     API_PORT: z.coerce.number().int().positive().default(3000),
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
-      .default('development'),
+      .default('production'),
     AUTH_RAW_BEARER_IDS: z.string().optional(),
   })
   .superRefine((data, ctx) => {
