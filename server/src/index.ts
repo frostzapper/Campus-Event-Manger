@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import { config } from './config/env';
 import { prisma } from './lib/prisma';
 import { eventsRouter } from './routes/events';
 import { sessionsRouter } from './routes/sessions';
@@ -14,7 +15,7 @@ import { asyncHandler } from './middleware/asyncHandler';
 
 const app = express();
 
-const PORT = Number(process.env.API_PORT ?? process.env.PORT ?? 3000);
+const PORT = config.port;
 
 app.use(express.json());
 

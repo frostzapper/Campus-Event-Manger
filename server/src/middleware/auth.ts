@@ -1,15 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET ?? 'campus-event-finder-dev-secret';
+import { verifyToken } from '../lib/token';
+import { config } from '../config/env';
 
 /**
  * Authentication middleware.
  *
  * Validates a "Bearer <token>" Authorization header using JWT.
  *
- * When `NODE_ENV === 'test'` or `AUTH_RAW_BEARER_IDS=true`, a non-JWT bearer value
- * is accepted as a raw user id (legacy integration / tests).
+ * When NODE_ENV === 'test' and config.allowRawBearerIds is true, a non-JWT
+ * bearer value is accepted as a raw user id for integration test convenience.
+ * This branch is never active outside NODE_ENV=test.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
@@ -24,23 +24,57 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as { studentId: string };
+  const payload = verifyToken(token);
+  if (payload) {
     (req as AuthenticatedRequest).studentId = payload.studentId;
     next();
     return;
-  } catch {
-    // fall through
   }
 
-  const allowRaw =
-    process.env.NODE_ENV === 'test' || process.env.AUTH_RAW_BEARER_IDS === 'true';
-  if (allowRaw && token.length > 0) {
+  // Raw bearer IDs are only permitted in NODE_ENV=test.
+  // AUTH_RAW_BEARER_IDS env var is rejected at startup in non-test environments.
+  if (config.allowRawBearerIds && token.length > 0) {
     (req as AuthenticatedRequest).studentId = token;
     next();
     return;
   }
 
+  res.status(401).json({ message: 'Invalid or expired token' });
+}
+
+/**
+ * Optional authentication middleware.
+ *
+ * If a valid JWT is present, sets studentId on the request.
+ * If the header is missing, continues without setting studentId.
+ * If the token is present but invalid, returns 401.
+ * Use on routes that behave differently for authenticated vs anonymous users.
+ */
+export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    next();
+    return;
+  }
+  if (!authHeader.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+
+  const token = authHeader.slice('Bearer '.length).trim();
+  if (!token) {
+    next();
+    return;
+  }
+
+  const payload = verifyToken(token);
+  if (payload) {
+    (req as AuthenticatedRequest).studentId = payload.studentId;
+    next();
+    return;
+  }
+
+  // Token was provided but is invalid — signal the client rather than silently ignoring.
   res.status(401).json({ message: 'Invalid or expired token' });
 }
 

@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import { EventStatus, EventSubtype, Prisma, RegistrationStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { requireAuth as authMiddleware, AuthenticatedRequest } from '../middleware/auth';
+import { requireAuth as authMiddleware, optionalAuth, AuthenticatedRequest } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { dbEventToShared, parseSubtype } from '../db/mappers';
 import { generateId } from '../db/id';
@@ -181,18 +180,10 @@ eventsRouter.get(
 /** GET /events/:id */
 eventsRouter.get(
   '/:id',
+  optionalAuth,
   asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const authHeader = req.headers.authorization;
-    let currentStudentId: string | undefined;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.slice(7);
-      try {
-        const payload = jwt.verify(token, process.env.JWT_SECRET ?? 'campus-event-finder-dev-secret') as { studentId: string };
-        currentStudentId = payload.studentId;
-      } catch { /* ignore invalid token */ }
-    }
+    const currentStudentId = (req as AuthenticatedRequest).studentId as string | undefined;
 
     const row = await prisma.event.findUnique({
       where: { id },
