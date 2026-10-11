@@ -163,7 +163,9 @@ describe('env config: AUTH_RAW_BEARER_IDS', () => {
     expect(result.success).toBe(false);
   });
 
-  it('allows AUTH_RAW_BEARER_IDS in NODE_ENV=test', () => {
+  it('does not block startup when AUTH_RAW_BEARER_IDS is set in NODE_ENV=test', () => {
+    // The server refuses to start when this variable is present outside test.
+    // In test it is not used for anything but must not prevent startup.
     const result = envSchema.safeParse({
       DATABASE_URL: VALID_DB_URL,
       NODE_ENV: 'test',

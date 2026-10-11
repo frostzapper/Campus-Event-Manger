@@ -59,8 +59,6 @@ export const config = {
   jwtSecret: data.JWT_SECRET,
   port: data.API_PORT,
   nodeEnv: data.NODE_ENV,
-  /** True only in NODE_ENV=test when AUTH_RAW_BEARER_IDS is set. Never true in production. */
-  allowRawBearerIds: data.NODE_ENV === 'test' && data.AUTH_RAW_BEARER_IDS !== undefined,
 } as const;
 
 export type Config = typeof config;
