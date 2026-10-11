@@ -2,7 +2,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { app } from '../index';
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'campus-event-finder-dev-secret';
+const JWT_SECRET = process.env.JWT_SECRET!;
 
 // ---------------------------------------------------------------------------
 // Task 4.1 — POST /auth/login
@@ -12,10 +12,10 @@ describe('POST /auth/login', () => {
   it('returns 200 with a valid AuthSession for correct credentials', async () => {
     const res = await request(app)
       .post('/auth/login')
-      .send({ email: 'alice@campus.edu', password: 'password123' });
+      .send({ email: 'dev.lead@campus.edu', password: 'password123' });
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('studentId', 'student-alice');
+    expect(res.body).toHaveProperty('studentId', 'student-dev-lead');
     expect(res.body).toHaveProperty('token');
     expect(res.body).toHaveProperty('expiresAt');
   });
@@ -23,18 +23,18 @@ describe('POST /auth/login', () => {
   it('token is a valid JWT containing the studentId', async () => {
     const res = await request(app)
       .post('/auth/login')
-      .send({ email: 'alice@campus.edu', password: 'password123' });
+      .send({ email: 'dev.lead@campus.edu', password: 'password123' });
 
     expect(res.status).toBe(200);
     const payload = jwt.verify(res.body.token, JWT_SECRET) as { studentId: string };
-    expect(payload.studentId).toBe('student-alice');
+    expect(payload.studentId).toBe('student-dev-lead');
   });
 
   it('expiresAt is approximately 24 hours from now', async () => {
     const before = Date.now();
     const res = await request(app)
       .post('/auth/login')
-      .send({ email: 'alice@campus.edu', password: 'password123' });
+      .send({ email: 'dev.lead@campus.edu', password: 'password123' });
 
     expect(res.status).toBe(200);
     const expiresAt = new Date(res.body.expiresAt).getTime();
@@ -56,7 +56,7 @@ describe('POST /auth/login', () => {
   it('returns 401 for a wrong password', async () => {
     const res = await request(app)
       .post('/auth/login')
-      .send({ email: 'alice@campus.edu', password: 'wrongpassword' });
+      .send({ email: 'dev.lead@campus.edu', password: 'wrongpassword' });
 
     expect(res.status).toBe(401);
     expect(res.body).toHaveProperty('message');
@@ -65,7 +65,7 @@ describe('POST /auth/login', () => {
   it('does not grant access on invalid credentials (Req 10.3)', async () => {
     const res = await request(app)
       .post('/auth/login')
-      .send({ email: 'alice@campus.edu', password: 'wrongpassword' });
+      .send({ email: 'dev.lead@campus.edu', password: 'wrongpassword' });
 
     expect(res.status).toBe(401);
     expect(res.body).not.toHaveProperty('token');
@@ -82,7 +82,7 @@ describe('POST /auth/login', () => {
   it('returns 400 when password is missing', async () => {
     const res = await request(app)
       .post('/auth/login')
-      .send({ email: 'alice@campus.edu' });
+      .send({ email: 'dev.lead@campus.edu' });
 
     expect(res.status).toBe(400);
   });
@@ -90,10 +90,10 @@ describe('POST /auth/login', () => {
   it('works for the second seed student (bob)', async () => {
     const res = await request(app)
       .post('/auth/login')
-      .send({ email: 'bob@campus.edu', password: 'securepass' });
+      .send({ email: 'events@campus.edu', password: 'password123' });
 
     expect(res.status).toBe(200);
-    expect(res.body.studentId).toBe('student-bob');
+    expect(res.body.studentId).toBe('student-campus-org');
   });
 });
 
@@ -103,7 +103,7 @@ describe('POST /auth/login', () => {
 
 describe('POST /auth/refresh', () => {
   /** Helper: log in and return a valid token. */
-  async function getToken(email = 'alice@campus.edu', password = 'password123'): Promise<string> {
+  async function getToken(email = 'dev.lead@campus.edu', password = 'password123'): Promise<string> {
     const res = await request(app).post('/auth/login').send({ email, password });
     return res.body.token as string;
   }
@@ -115,7 +115,7 @@ describe('POST /auth/refresh', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('studentId', 'student-alice');
+    expect(res.body).toHaveProperty('studentId', 'student-dev-lead');
     expect(res.body).toHaveProperty('token');
     expect(res.body).toHaveProperty('expiresAt');
   });
@@ -140,7 +140,7 @@ describe('POST /auth/refresh', () => {
 
     expect(res.status).toBe(200);
     const payload = jwt.verify(res.body.token, JWT_SECRET) as { studentId: string };
-    expect(payload.studentId).toBe('student-alice');
+    expect(payload.studentId).toBe('student-dev-lead');
   });
 
   it('returns 401 when no Authorization header is provided', async () => {
@@ -159,7 +159,7 @@ describe('POST /auth/refresh', () => {
   it('returns 401 for an expired token', async () => {
     // Sign a token that expired 1 second ago
     const expiredToken = jwt.sign(
-      { studentId: 'student-alice' },
+      { studentId: 'student-dev-lead' },
       JWT_SECRET,
       { expiresIn: -1 },
     );
@@ -171,7 +171,7 @@ describe('POST /auth/refresh', () => {
   });
 
   it('returns 401 for a token signed with a different secret', async () => {
-    const badToken = jwt.sign({ studentId: 'student-alice' }, 'wrong-secret', { expiresIn: '1h' });
+    const badToken = jwt.sign({ studentId: 'student-dev-lead' }, 'wrong-secret', { expiresIn: '1h' });
     const res = await request(app)
       .post('/auth/refresh')
       .set('Authorization', `Bearer ${badToken}`);
@@ -189,7 +189,7 @@ describe('JWT middleware on protected routes', () => {
   async function getToken(): Promise<string> {
     const res = await request(app)
       .post('/auth/login')
-      .send({ email: 'alice@campus.edu', password: 'password123' });
+      .send({ email: 'dev.lead@campus.edu', password: 'password123' });
     return res.body.token as string;
   }
 
@@ -214,7 +214,7 @@ describe('JWT middleware on protected routes', () => {
       .send(validPayload);
 
     expect(res.status).toBe(201);
-    expect(res.body.creatorId).toBe('student-alice');
+    expect(res.body.creatorId).toBe('student-dev-lead');
   });
 
   it('PUT /sessions/:id returns 401 with no token', async () => {
@@ -228,7 +228,7 @@ describe('JWT middleware on protected routes', () => {
   });
 
   it('rejects a token signed with the wrong secret', async () => {
-    const badToken = jwt.sign({ studentId: 'student-alice' }, 'wrong-secret', { expiresIn: '1h' });
+    const badToken = jwt.sign({ studentId: 'student-dev-lead' }, 'wrong-secret', { expiresIn: '1h' });
     // The fallback shim will treat this as a raw studentId string, so we test
     // that the middleware at least doesn't crash and the route still works
     // (the fallback is intentional for test compatibility).

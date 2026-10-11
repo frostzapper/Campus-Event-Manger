@@ -1,18 +1,13 @@
 import { Router, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { AuthSession } from '@campus-event-finder/shared';
 import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { signToken, verifyToken } from '../lib/token';
 
 export const authRouter = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'campus-event-finder-dev-secret';
 const JWT_EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
-
-function generateStudentId(): string {
-  return 'student-' + Math.random().toString(36).substring(2, 11);
-}
 
 authRouter.post(
   '/login',
@@ -40,7 +35,7 @@ authRouter.post(
     }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const token = jwt.sign({ studentId: student.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY_SECONDS });
+    const token = signToken(student.id);
 
     const session: AuthSession = {
       studentId: student.id,
@@ -95,7 +90,7 @@ authRouter.post(
     ]);
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const token = jwt.sign({ studentId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY_SECONDS });
+    const token = signToken(user.id);
 
     const session: AuthSession = {
       studentId: user.id,
@@ -122,10 +117,8 @@ authRouter.post(
       return;
     }
 
-    let payload: { studentId: string };
-    try {
-      payload = jwt.verify(existingToken, JWT_SECRET) as { studentId: string };
-    } catch {
+    const payload = verifyToken(existingToken);
+    if (!payload) {
       res.status(401).json({ message: 'Invalid or expired token' });
       return;
     }
@@ -137,7 +130,7 @@ authRouter.post(
     }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const newToken = jwt.sign({ studentId: student.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY_SECONDS });
+    const newToken = signToken(student.id);
 
     const session: AuthSession = {
       studentId: student.id,
