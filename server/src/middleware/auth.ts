@@ -7,9 +7,9 @@ import { config } from '../config/env';
  *
  * Validates a "Bearer <token>" Authorization header using JWT.
  *
- * When NODE_ENV === 'test' and config.allowRawBearerIds is true, a non-JWT
- * bearer value is accepted as a raw user id for integration test convenience.
- * This branch is never active outside NODE_ENV=test.
+ * When NODE_ENV === 'test', a non-JWT bearer value is accepted as a raw
+ * user id for integration test convenience. This branch is never active
+ * outside NODE_ENV=test.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
