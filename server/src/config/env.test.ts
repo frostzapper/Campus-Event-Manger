@@ -5,40 +5,7 @@
  * calls process.exit(1) on validation failure and that would terminate Jest.
  */
 
-import { z } from 'zod';
-
-// ---------------------------------------------------------------------------
-// Reproduce the schema from env.ts so we can call safeParse without side effects.
-// If the schema in env.ts changes, keep this in sync.
-// ---------------------------------------------------------------------------
-
-const envSchema = z
-  .object({
-    DATABASE_URL: z.string().min(1),
-    JWT_SECRET: z.string().default(''),
-    API_PORT: z.coerce.number().int().positive().default(3000),
-    NODE_ENV: z
-      .enum(['development', 'test', 'production'])
-      .default('production'),
-    AUTH_RAW_BEARER_IDS: z.string().optional(),
-    BCRYPT_COST: z.coerce.number().int().min(10).max(14).default(12),
-  })
-  .superRefine((data, ctx) => {
-    if (data.AUTH_RAW_BEARER_IDS !== undefined && data.NODE_ENV !== 'test') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['AUTH_RAW_BEARER_IDS'],
-        message: 'AUTH_RAW_BEARER_IDS must not be set outside NODE_ENV=test.',
-      });
-    }
-    if (data.NODE_ENV !== 'test' && data.JWT_SECRET.length < 32) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['JWT_SECRET'],
-        message: 'JWT_SECRET must be at least 32 characters when NODE_ENV is not "test".',
-      });
-    }
-  });
+import { envSchema } from './schema';
 
 const VALID_SECRET = 'a'.repeat(32);
 const VALID_DB_URL = 'postgresql://user:pass@localhost:5432/db';
