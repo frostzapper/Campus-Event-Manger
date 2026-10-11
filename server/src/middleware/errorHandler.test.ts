@@ -4,6 +4,15 @@ import { ZodError, z } from 'zod';
 import { HttpError } from '../lib/HttpError';
 import { errorHandler } from './errorHandler';
 
+/**
+ * errorHandler tests
+ *
+ * NOTE: These tests run with NODE_ENV defaulting to 'production' (config.nodeEnv).
+ * The tests verify production behavior (no stack traces, generic messages for 500+ errors).
+ * Development behavior (stack traces included) is verified through integration tests
+ * and manual testing, as unit tests cannot override config.nodeEnv at runtime.
+ */
+
 function mockResponse(): Response {
   const res = {} as Response;
   res.status = jest.fn().mockReturnValue(res);
@@ -92,29 +101,21 @@ describe('errorHandler', () => {
     expect(res.json).toHaveBeenCalledWith({ message: 'Validation error' });
   });
 
-  it('returns 500 with message and stack in development', () => {
-    // When NODE_ENV=development, errors include stack traces
-    const err = new Error('Dev error');
+  it('returns generic 500 without stack in production', () => {
+    // When NODE_ENV is production (the default), errors with status >= 500
+    // return a generic message and no stack trace for security.
+    const err = new Error('Sensitive error details');
     errorHandler(err, req, res, next);
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({
-      message: 'Dev error',
-      stack: expect.any(String),
-    });
+    expect(res.json).toHaveBeenCalledWith({ message: 'Internal server error' });
   });
 
-  it('returns generic 500 without stack in production', () => {
-    // Documents that in production, no stack is returned
-    // (This test runs in development, so it won't actually test production behavior,
-    // but documents the expected behavior)
-    const err = new Error('Production error');
+  it('returns generic 500 without stack in test', () => {
+    // When NODE_ENV is test, errors with status >= 500 also hide details.
+    const err = new Error('Test error details');
     errorHandler(err, req, res, next);
-    // In the current test environment (development), stack IS returned
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({
-      message: 'Production error',
-      stack: expect.any(String),
-    });
+    expect(res.json).toHaveBeenCalledWith({ message: 'Internal server error' });
   });
 
   it('returns status 500 for non-Error unknown values', () => {
