@@ -2,78 +2,111 @@
 
 A robust web application built with **PostgreSQL**, **Prisma**, and **React** that helps students discover campus events, manage registrations, and find one-time sports play sessions.
 
-## 🚀 Features
+## Features
 
--   **Events Discovery** — Browse and search upcoming campus events with date, time, location, price, and entry requirements.
--   **Smart Directions** — Google Maps directions are dynamically offered when students are off-campus.
--   **Live Registration** — Authenticated users can join events, track participant counts, and manage their own event dashboard.
--   **Sports Play Sessions** — A dedicated space for finding and posting one-time sports sessions.
--   **Real-time Notifications** — In-app notifications for registration confirmations and event updates.
--   **Account Management** — Secure JWT-based authentication with signup, login, and personalized reminder preferences.
+- Events Discovery — browse and search upcoming campus events with date, time, location, price, and entry requirements.
+- Smart Directions — Google Maps directions offered when a student is off-campus.
+- Live Registration — authenticated users can join events, track participant counts, and manage their own dashboard.
+- Sports Play Sessions — find and post one-time sports sessions.
+- Following — follow organizers and see a personalised feed of their upcoming events.
+- Saved Events — bookmark events to a personal list.
+- Notifications — in-app notifications for registrations, event updates, and new followers.
+- Reminder Preferences — configure 24 h, 1 h, and at-start email and in-app reminders.
+- JWT Authentication — signup, login, token refresh, and protected routes.
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 campus-event-finder/
-├── client/          # React + TypeScript + Vite frontend
-├── server/          # Express + TypeScript + Prisma + PostgreSQL API
-├── shared/          # Shared TypeScript models and service interfaces
-└── .kiro/specs/     # Specification and design documents
+├── client/                  # React + TypeScript + Vite frontend
+│   ├── src/
+│   │   ├── components/      # Shared UI components
+│   │   ├── pages/           # Route-level page components
+│   │   ├── services/        # API service layer
+│   │   └── styles/
+│   └── vite.config.mts
+├── server/                  # Express + TypeScript + Prisma + PostgreSQL API
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   ├── migrations/
+│   │   └── seed.ts
+│   └── src/
+│       ├── config/          # Validated environment configuration (env.ts)
+│       ├── controllers/
+│       ├── lib/             # Shared utilities (prisma client, token helpers)
+│       ├── middleware/      # Express middleware (auth, error handler)
+│       ├── routes/          # Route handlers
+│       ├── services/        # Business logic services
+│       └── validation/      # Zod input schemas
+├── shared/                  # Shared TypeScript models and service interfaces
+└── docker-compose.yml
 ```
 
-## 🛠 Prerequisites
+## Prerequisites
 
--   **Node.js**: v18 or higher
--   **npm**: v9 or higher
--   **PostgreSQL**: A running instance (local or remote)
+- Node.js v20 or higher
+- npm v9 or higher
+- PostgreSQL 14 or higher (a running local instance)
 
-## 🏁 Getting Started
+## Getting Started
 
-### 1. Clone & Install
+### 1. Clone and install
 
 ```bash
 npm install
 ```
 
-### 2. Configure Environment
-
-Create a `.env` file in the root directory by copying the example:
+### 2. Configure environment
 
 ```bash
-cp .env.example .env
+cp server/.env.example server/.env
+cp client/.env.example client/.env
 ```
 
-Edit `.env` and set your `DATABASE_URL` and `JWT_SECRET`.
+Edit `server/.env` and set `DATABASE_URL` and `JWT_SECRET`.
 
-### 3. Database Setup (Prisma)
-
-Initialize the database schema and seed the initial data:
+### 3. Database setup
 
 ```bash
 cd server
-npx prisma migrate dev --name init
+npx prisma migrate deploy
 npx prisma db seed
 ```
 
-### 4. Start Development
-
-From the root directory:
+### 4. Start development servers
 
 ```bash
-# Run both client and server in parallel
 npm run dev
 ```
 
-The API will be available at `http://localhost:3000` and the frontend at `http://localhost:5173`.
+The API is available at `http://localhost:3000` and the frontend at `http://localhost:5173`.
 
-## 🧪 Demo Accounts
+## Environment Variables
 
-The project includes pre-seeded accounts for testing:
+### server/.env
 
-| Email             | Password    |
-| ----------------- | ----------- |
-| alice@campus.edu  | password123 |
-| bob@campus.edu    | securepass  |
+| Variable | Required | Default | Description |
+| -------------------- | -------- | ------------ | ------------------------------------------ |
+| `DATABASE_URL` | Yes | — | PostgreSQL connection string |
+| `JWT_SECRET` | Yes | — | JWT signing secret, minimum 32 characters |
+| `API_PORT` | No | `3000` | TCP port for the API server |
+| `NODE_ENV` | No | `development` | `development`, `test`, or `production` |
+| `AUTH_RAW_BEARER_IDS` | No | — | Test-only. Never set in production. |
+
+### client/.env
+
+| Variable | Required | Default | Description |
+| ---------------- | -------- | ------------------------- | ---------------------------------------------- |
+| `VITE_API_URL` | No | `http://localhost:3000` | API base URL (used in production builds only) |
+
+## Demo Accounts
+
+The seed script creates these accounts for local testing:
+
+| Email | Password | Role |
+| --------------------- | ----------- | ---------------------- |
+| dev.lead@campus.edu | password123 | Alex Chen (Tech Lead) |
+| events@campus.edu | password123 | Sarah Miller (Campus Events) |
 
 ## 📜 Available Scripts
 
