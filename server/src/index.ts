@@ -64,6 +64,7 @@ if (require.main === module) {
       console.log('[DB] Connected to PostgreSQL');
       app.listen(PORT, () => {
         console.log(`Campus Event Finder API listening on port ${PORT}`);
+        console.log(`Running in ${config.nodeEnv} mode`);
         startReminderScheduler();
       });
     })
