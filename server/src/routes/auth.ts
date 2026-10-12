@@ -7,10 +7,15 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { signToken, verifyToken } from '../lib/token';
 import { registerSchema, loginSchema } from '../validation/auth';
 import { config } from '../config/env';
+import { createAuthLimiter, createEmailLimiter } from '../middleware/rateLimit';
 
 export const authRouter = Router();
 
 const JWT_EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
+
+// Per-IP rate limiters for auth endpoints
+const authLimiter = createAuthLimiter();
+const emailLimiter = createEmailLimiter();
 
 // Generate a dummy hash at startup for login timing attack mitigation
 // Used when email does not exist so response time doesn't reveal account existence
@@ -26,6 +31,7 @@ dummyHashPromise = initDummyHash();
 
 authRouter.post(
   '/login',
+  authLimiter,
   asyncHandler(async (req: Request, res: Response) => {
     // Ensure dummy hash is ready before processing login
     await dummyHashPromise;
@@ -37,6 +43,15 @@ authRouter.post(
     }
 
     const { email, password } = validation.data;
+
+    // Check per-email rate limit (failed attempts only)
+    // Note: In test mode, emailLimiter is skipped unless explicitly configured with options
+    const emailLimitCheck = await emailLimiter(req, res, () => {});
+    if (res.statusCode === 429) {
+      // Rate limit exceeded for this email
+      res.status(429).json({ message: 'Too many failed login attempts. Please try again later.' });
+      return;
+    }
 
     const student = await prisma.user.findUnique({
       where: { email },
@@ -57,7 +72,8 @@ authRouter.post(
     }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const token = signToken(student.id);
+    const now = Math.floor(Date.now() / 1000); // Unix seconds
+    const token = signToken(student.id, now);
 
     const session: AuthSession = {
       studentId: student.id,
@@ -71,6 +87,7 @@ authRouter.post(
 
 authRouter.post(
   '/register',
+  authLimiter,
   asyncHandler(async (req: Request, res: Response) => {
     const validation = registerSchema.safeParse(req.body);
     if (!validation.success) {
@@ -83,9 +100,10 @@ authRouter.post(
     // Check if user exists
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      // Registration keeps returning 409 for an existing email. This is a deliberate
-      // UX tradeoff that makes the system enumerable. The per-email rate limiter
-      // (Phase 2, Task 5) mitigates brute-force enumeration attacks.
+      // Registration returns 409 for an existing email. This is a deliberate
+      // UX tradeoff that makes the system enumerable. The per-IP rate limiter
+      // (configured at RATE_LIMIT_REQUESTS_PER_15MIN) mitigates brute-force
+      // enumeration attacks by limiting registration attempts per IP address.
       res.status(409).json({ message: 'An account with this email already exists' });
       return;
     }
@@ -132,7 +150,8 @@ authRouter.post(
     }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const token = signToken(user.id);
+    const now = Math.floor(Date.now() / 1000); // Unix seconds
+    const token = signToken(user.id, now);
 
     const session: AuthSession = {
       studentId: user.id,
@@ -165,6 +184,16 @@ authRouter.post(
       return;
     }
 
+    // Check session lifetime if authTime is set
+    if (payload.authTime !== undefined) {
+      const now = Math.floor(Date.now() / 1000);
+      const sessionAge = now - payload.authTime;
+      if (sessionAge > config.sessionMaxAgeSeconds) {
+        res.status(401).json({ message: 'Session expired. Please log in again.' });
+        return;
+      }
+    }
+
     const student = await prisma.user.findUnique({ where: { id: payload.studentId } });
     if (!student) {
       res.status(401).json({ message: 'Student not found' });
@@ -172,7 +201,9 @@ authRouter.post(
     }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const newToken = signToken(student.id);
+    // Copy authTime from old token (preserves original login time); fallback to now if not set
+    const authTime = payload.authTime ?? Math.floor(Date.now() / 1000);
+    const newToken = signToken(student.id, authTime);
 
     const session: AuthSession = {
       studentId: student.id,

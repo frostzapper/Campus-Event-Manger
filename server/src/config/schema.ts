@@ -16,6 +16,9 @@ export const envSchema = z
       .default('production'),
     AUTH_RAW_BEARER_IDS: z.string().optional(),
     BCRYPT_COST: z.coerce.number().int().min(10).max(14).default(12),
+    RATE_LIMIT_REQUESTS_PER_15MIN: z.coerce.number().int().positive().default(20),
+    RATE_LIMIT_EMAIL_ATTEMPTS_PER_15MIN: z.coerce.number().int().positive().default(10),
+    SESSION_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(604800), // 7 days default
   })
   .superRefine((data, ctx) => {
     // Refuse to start if AUTH_RAW_BEARER_IDS is set outside of test.

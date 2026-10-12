@@ -27,6 +27,9 @@ export const config = {
   port: data.API_PORT,
   nodeEnv: data.NODE_ENV,
   bcryptCost: data.BCRYPT_COST,
+  rateLimitRequestsPerWindow: data.RATE_LIMIT_REQUESTS_PER_15MIN,
+  rateLimitEmailAttemptsPerWindow: data.RATE_LIMIT_EMAIL_ATTEMPTS_PER_15MIN,
+  sessionMaxAgeSeconds: data.SESSION_MAX_AGE_SECONDS,
 } as const;
 
 export type Config = typeof config;
