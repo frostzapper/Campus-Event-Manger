@@ -92,6 +92,9 @@ The API is available at `http://localhost:3000` and the frontend at `http://loca
 | `API_PORT` | No | `3000` | TCP port for the API server |
 | `NODE_ENV` | No | `production` | `development`, `test`, or `production` |
 | `BCRYPT_COST` | No | `12` | Bcrypt cost factor, 10-14 (higher = slower but more secure) |
+| `RATE_LIMIT_REQUESTS_PER_15MIN` | No | `20` | Max requests per IP per 15 minutes on /auth endpoints |
+| `RATE_LIMIT_EMAIL_ATTEMPTS_PER_15MIN` | No | `10` | Max failed login attempts per email per 15 minutes |
+| `SESSION_MAX_AGE_SECONDS` | No | `604800` | Session lifetime in seconds (default 7 days) |
 
 **Test-only authentication guard:** `AUTH_RAW_BEARER_IDS` may be set in `NODE_ENV=test` environments to enable raw student ID bearer tokens. The server refuses to start if this variable is set in production or development.
 
