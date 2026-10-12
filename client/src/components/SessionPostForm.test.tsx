@@ -19,6 +19,7 @@ function makePost(overrides: Partial<SessionPost> = {}): SessionPost {
     scheduledAt: '2099-07-10T15:00',
     description: 'Looking for players for a casual game.',
     isActive: true,
+    createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }
@@ -370,6 +371,7 @@ describe('Property 16: Session post edit round-trip (requirement 8.2)', () => {
       scheduledAt: datetimeLocal,
       description: nonEmptyString,
       isActive: fc.boolean(),
+      createdAt: fc.date().map((d) => d.toISOString()),
     });
 
     // Generator for a valid set of edits (all required fields must remain valid)
@@ -482,6 +484,7 @@ describe('Property 18: Edit form pre-population (requirement 8.4)', () => {
       scheduledAt: datetimeLocal,
       description: nonEmptyString,
       isActive: fc.boolean(),
+      createdAt: fc.date().map((d) => d.toISOString()),
     });
 
     fc.assert(

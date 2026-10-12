@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
 import { HttpError } from '../lib/HttpError';
+import { config } from '../config/env';
 
 /**
  * Central JSON error handler. Keeps API responses consistent for DB and runtime errors.
@@ -47,8 +48,8 @@ export function errorHandler(
   }
 
   const msg = err instanceof Error ? err.message : 'Internal server error';
-  const status = (err as { status?: number }).status ?? 500;
-  if (process.env.NODE_ENV !== 'production' && err instanceof Error) {
+  const status = err instanceof Error ? ((err as { status?: number }).status ?? 500) : 500;
+  if (config.nodeEnv === 'development' && err instanceof Error) {
     res.status(status).json({ message: msg, stack: err.stack });
     return;
   }

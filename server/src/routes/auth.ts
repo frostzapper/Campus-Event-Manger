@@ -1,46 +1,100 @@
 import { Router, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { AuthSession } from '@campus-event-finder/shared';
 import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { signToken, verifyToken } from '../lib/token';
+import { registerSchema, loginSchema } from '../validation/auth';
+import { config } from '../config/env';
+import { createAuthLimiter, createEmailLimiter, emailLimiterStore, limiterTestControl } from '../middleware/rateLimit';
 
 export const authRouter = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET ?? 'campus-event-finder-dev-secret';
 const JWT_EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
 
-function generateStudentId(): string {
-  return 'student-' + Math.random().toString(36).substring(2, 11);
+// Per-IP rate limiters for auth endpoints
+const authLimiter = createAuthLimiter();
+const emailLimiter = createEmailLimiter();
+
+// Generate a dummy hash at startup for login timing attack mitigation
+// Used when email does not exist so response time doesn't reveal account existence
+let dummyHashPromise: Promise<void>;
+let dummyHash: string = '';
+
+async function initDummyHash(): Promise<void> {
+  dummyHash = await bcrypt.hash('dummy', config.bcryptCost);
+}
+
+// Start initialization immediately
+dummyHashPromise = initDummyHash();
+
+/**
+ * Helper function to call a rate limiter middleware and detect if it sent a 429 response.
+ * Returns true if the limiter allowed the request to proceed, false if it sent 429.
+ * This avoids hanging Promise wrappers by checking headersSent after limiter invocation.
+ */
+async function callLimiterAsync(
+  limiter: (req: Request, res: Response, next: () => void) => void,
+  req: Request,
+  res: Response,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    limiter(req, res, () => {
+      resolve(true); // Limiter called next(), request allowed
+    });
+    // If limiter sent a response (429), res.headersSent will be true
+    if (res.headersSent) {
+      resolve(false); // Limiter sent 429, request blocked
+    }
+  });
 }
 
 authRouter.post(
   '/login',
+  authLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body;
+    // Ensure dummy hash is ready before processing login
+    await dummyHashPromise;
 
-    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
-      res.status(400).json({ message: 'email and password are required' });
+    const validation = loginSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ message: 'Validation failed', issues: validation.error.flatten() });
+      return;
+    }
+
+    const { email, password } = validation.data;
+
+    // Apply per-email rate limiter BEFORE credential check.
+    // This ensures that even a correct password is blocked if the email has too many failed attempts.
+    const limiterAllowed = await callLimiterAsync(emailLimiter, req, res);
+    if (!limiterAllowed) {
+      // Limiter sent a 429 response
       return;
     }
 
     const student = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+      where: { email },
     });
 
-    if (!student) {
-      res.status(401).json({ message: 'Invalid credentials' });
-      return;
+    let passwordValid = false;
+    if (student) {
+      passwordValid = await bcrypt.compare(password, student.passwordHash);
+    } else {
+      // Run bcrypt against dummy hash even if user doesn't exist
+      // to avoid timing attacks that reveal whether an email is registered
+      await bcrypt.compare(password, dummyHash);
     }
 
-    const passwordValid = await bcrypt.compare(password, student.passwordHash);
-    if (!passwordValid) {
+    if (!student || !passwordValid) {
+      // Email limited check is already done above, so this is just a failed attempt
       res.status(401).json({ message: 'Invalid credentials' });
       return;
     }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const token = jwt.sign({ studentId: student.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY_SECONDS });
+    const now = Math.floor(Date.now() / 1000); // Unix seconds
+    const token = signToken(student.id, now);
 
     const session: AuthSession = {
       studentId: student.id,
@@ -54,48 +108,71 @@ authRouter.post(
 
 authRouter.post(
   '/register',
+  authLimiter,
   asyncHandler(async (req: Request, res: Response) => {
-    const { name, email, password } = req.body;
-
-    if (!name || !email || !password) {
-      res.status(400).json({ message: 'name, email, and password are required' });
+    const validation = registerSchema.safeParse(req.body);
+    if (!validation.success) {
+      res.status(400).json({ message: 'Validation failed', issues: validation.error.flatten() });
       return;
     }
 
-    const emailLower = email.trim().toLowerCase();
+    const { email, password, displayName } = validation.data;
 
     // Check if user exists
-    const existing = await prisma.user.findUnique({ where: { email: emailLower } });
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
+      // Registration returns 409 for an existing email. This is a deliberate
+      // UX tradeoff that makes the system enumerable. The per-IP rate limiter
+      // (configured at RATE_LIMIT_REQUESTS_PER_15MIN) mitigates brute-force
+      // enumeration attacks by limiting registration attempts per IP address.
       res.status(409).json({ message: 'An account with this email already exists' });
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    const studentId = 'student-' + Math.random().toString(36).substring(2, 11);
+    const passwordHash = await bcrypt.hash(password, config.bcryptCost);
+    // User IDs: new users are "student-" followed by a 36-character UUID (e.g., student-a1b2c3d4-...).
+    // Existing IDs use the legacy format: "student-" followed by 1-9 random characters (e.g., student-abc123).
+    // Hand-written seed IDs like "student-dev-lead" or "student-campus-org" are also valid.
+    // Both formats authenticate identically. Route-parameter validation in a later phase must accept
+    // all three formats and must not assume a fixed length.
+    const studentId = 'student-' + randomUUID();
 
-    const [user] = await prisma.$transaction([
-      prisma.user.create({
-        data: {
-          id: studentId,
-          email: emailLower,
-          displayName: name.trim(),
-          passwordHash,
-        },
-      }),
-      // Default preferences
-      prisma.reminderPrefs.create({
-        data: {
-          userId: studentId,
-          enabled: true,
-          inApp: true,
-          email: true,
-        },
-      }),
-    ]);
+    let user;
+    try {
+      [user] = await prisma.$transaction([
+        prisma.user.create({
+          data: {
+            id: studentId,
+            email,
+            displayName,
+            passwordHash,
+          },
+        }),
+        // Default preferences
+        prisma.reminderPrefs.create({
+          data: {
+            userId: studentId,
+            enabled: true,
+            inApp: true,
+            email: true,
+          },
+        }),
+      ]);
+    } catch (err) {
+      // If the email unique constraint was violated, return 409.
+      // Prisma throws PrismaClientKnownRequestError with code P2002 for unique violations.
+      // Check both the code and the target field to ensure it's the email constraint.
+      const isPrismaError = err && typeof err === 'object' && 'code' in err && 'meta' in err;
+      if (isPrismaError && (err as any).code === 'P2002' && (err as any).meta?.target?.includes('email')) {
+        res.status(409).json({ message: 'An account with this email already exists' });
+        return;
+      }
+      throw err;
+    }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const token = jwt.sign({ studentId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY_SECONDS });
+    const now = Math.floor(Date.now() / 1000); // Unix seconds
+    const token = signToken(user.id, now);
 
     const session: AuthSession = {
       studentId: user.id,
@@ -122,12 +199,20 @@ authRouter.post(
       return;
     }
 
-    let payload: { studentId: string };
-    try {
-      payload = jwt.verify(existingToken, JWT_SECRET) as { studentId: string };
-    } catch {
+    const payload = verifyToken(existingToken);
+    if (!payload) {
       res.status(401).json({ message: 'Invalid or expired token' });
       return;
+    }
+
+    // Check session lifetime if authTime is set
+    if (payload.authTime !== undefined) {
+      const now = Math.floor(Date.now() / 1000);
+      const sessionAge = now - payload.authTime;
+      if (sessionAge > config.sessionMaxAgeSeconds) {
+        res.status(401).json({ message: 'Session expired. Please log in again.' });
+        return;
+      }
     }
 
     const student = await prisma.user.findUnique({ where: { id: payload.studentId } });
@@ -137,7 +222,9 @@ authRouter.post(
     }
 
     const expiresAt = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
-    const newToken = jwt.sign({ studentId: student.id }, JWT_SECRET, { expiresIn: JWT_EXPIRY_SECONDS });
+    // Copy authTime from old token (preserves original login time); fallback to now if not set
+    const authTime = payload.authTime ?? Math.floor(Date.now() / 1000);
+    const newToken = signToken(student.id, authTime);
 
     const session: AuthSession = {
       studentId: student.id,

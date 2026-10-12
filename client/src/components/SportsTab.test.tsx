@@ -18,6 +18,7 @@ function makeSession(overrides: Partial<SessionPost> = {}): SessionPost {
     scheduledAt: '2099-06-15T14:00:00.000Z',
     description: 'Looking for players for a casual game.',
     isActive: true,
+    createdAt: '2024-01-01T00:00:00Z',
     ...overrides,
   };
 }
@@ -146,6 +147,7 @@ describe('SportsTab', () => {
       return {
         getSession: jest.fn().mockReturnValue(session),
         login: jest.fn(),
+        signup: jest.fn(),
         logout: jest.fn(),
         refresh: jest.fn(),
       };

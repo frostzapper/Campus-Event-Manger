@@ -122,6 +122,7 @@ describe('MapsServiceImpl.openDirections', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
@@ -150,6 +151,7 @@ describe('MapsServiceImpl.openDirections', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
@@ -176,6 +178,7 @@ describe('MapsServiceImpl.openDirections', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
@@ -208,6 +211,7 @@ describe('MapsServiceImpl.openDirections', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
@@ -354,6 +358,7 @@ describe('MapsService web URL fallback — Requirements 4.5', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
@@ -386,6 +391,7 @@ describe('MapsService web URL fallback — Requirements 4.5', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
@@ -415,6 +421,7 @@ describe('MapsService web URL fallback — Requirements 4.5', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
@@ -446,6 +453,7 @@ describe('MapsService web URL fallback — Requirements 4.5', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
@@ -477,6 +485,7 @@ describe('MapsService web URL fallback — Requirements 4.5', () => {
     });
 
     const hrefSetter = jest.fn();
+    delete (window as any).location;
     Object.defineProperty(window, 'location', {
       value: { ...window.location, set href(v: string) { hrefSetter(v); } },
       configurable: true,
