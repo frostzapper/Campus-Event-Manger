@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { config } from '../config/env';
 
 /**
@@ -19,10 +19,19 @@ export interface RateLimitOptions {
 }
 
 /**
+ * Custom handler for rate limit responses.
+ * Sends 429 with JSON error shape and RateLimit headers.
+ */
+function rateLimitHandler(req: Request, res: Response, message: string) {
+  res.status(429).json({ message });
+}
+
+/**
  * Per-IP rate limiter for authentication endpoints.
  * Limits total requests (login and register attempts) per IP address.
  * Defaults from config: 20 requests per 15 minutes.
  * Uses draft-7 RateLimit headers; legacy X-RateLimit headers are disabled.
+ * Returns 429 with JSON error body.
  */
 export function createAuthLimiter(options?: RateLimitOptions) {
   const windowMs = options?.windowMs ?? 15 * 60 * 1000; // 15 minutes
@@ -33,7 +42,8 @@ export function createAuthLimiter(options?: RateLimitOptions) {
     max,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    message: 'Too many authentication attempts from this IP address. Please try again later.',
+    handler: (req, res) =>
+      rateLimitHandler(req, res, 'Too many authentication attempts from this IP address. Please try again later.'),
     skip: () => config.nodeEnv === 'test' && !options, // Skip limiting in test mode unless explicitly configured
   });
 }
@@ -43,6 +53,7 @@ export function createAuthLimiter(options?: RateLimitOptions) {
  * Counts only failed login attempts. Successful logins bypass this limit.
  * Defaults from config: 10 failed attempts per 15 minutes per email.
  * Uses draft-7 RateLimit headers; legacy X-RateLimit headers are disabled.
+ * Returns 429 with JSON error body.
  *
  * This limiter is applied conditionally in the login handler after validation,
  * using the normalized email from the request body.
@@ -64,8 +75,9 @@ export function createEmailLimiter(options?: RateLimitOptions) {
         : 'unknown';
       return email;
     },
+    handler: (req, res) =>
+      rateLimitHandler(req, res, 'Too many failed login attempts for this email. Please try again later.'),
     skip: () => config.nodeEnv === 'test' && !options, // Skip limiting in test mode unless explicitly configured
     skipSuccessfulRequests: true, // Only count failed attempts
-    message: 'Too many failed login attempts for this email. Please try again later.',
   });
 }

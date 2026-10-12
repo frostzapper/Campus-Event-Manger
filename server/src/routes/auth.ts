@@ -44,15 +44,6 @@ authRouter.post(
 
     const { email, password } = validation.data;
 
-    // Check per-email rate limit (failed attempts only)
-    // Note: In test mode, emailLimiter is skipped unless explicitly configured with options
-    const emailLimitCheck = await emailLimiter(req, res, () => {});
-    if (res.statusCode === 429) {
-      // Rate limit exceeded for this email
-      res.status(429).json({ message: 'Too many failed login attempts. Please try again later.' });
-      return;
-    }
-
     const student = await prisma.user.findUnique({
       where: { email },
     });
@@ -67,6 +58,11 @@ authRouter.post(
     }
 
     if (!student || !passwordValid) {
+      // Trigger per-email rate limiter on failed attempt
+      // This limiter counts only failed attempts (skipSuccessfulRequests=true)
+      await new Promise<void>((resolve) => {
+        emailLimiter(req, res, () => resolve());
+      });
       res.status(401).json({ message: 'Invalid credentials' });
       return;
     }
