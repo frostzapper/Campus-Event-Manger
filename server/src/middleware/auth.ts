@@ -34,7 +34,8 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   // Raw bearer IDs are only permitted in NODE_ENV=test.
   // This allows integration tests to use plain user IDs as Bearer values
   // without issuing real JWTs. Never active in production or development.
-  if (config.nodeEnv === 'test' && token.length > 0) {
+  // Do not accept JWTs (which contain dots) in this fallback.
+  if (config.nodeEnv === 'test' && token.length > 0 && !token.includes('.')) {
     (req as AuthenticatedRequest).studentId = token;
     next();
     return;

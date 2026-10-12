@@ -44,7 +44,13 @@ export function createAuthLimiter(options?: RateLimitOptions) {
     legacyHeaders: false,
     handler: (req, res) =>
       rateLimitHandler(req, res, 'Too many authentication attempts from this IP address. Please try again later.'),
-    skip: () => config.nodeEnv === 'test' && !options, // Skip limiting in test mode unless explicitly configured
+    skip: (req, res) => {
+      // Skip rate limiting only in test mode and no custom options were provided
+      if (config.nodeEnv === 'test' && !options) {
+        return true;
+      }
+      return false;
+    },
   });
 }
 
@@ -55,8 +61,9 @@ export function createAuthLimiter(options?: RateLimitOptions) {
  * Uses draft-7 RateLimit headers; legacy X-RateLimit headers are disabled.
  * Returns 429 with JSON error body.
  *
- * This limiter is applied conditionally in the login handler after validation,
- * using the normalized email from the request body.
+ * This limiter is applied conditionally in the login handler BEFORE the credential check,
+ * using the normalized email from the validated request body.
+ * If the body email is not a string, falls back to client IP and never throws.
  */
 export function createEmailLimiter(options?: RateLimitOptions) {
   const windowMs = options?.windowMs ?? 15 * 60 * 1000; // 15 minutes
@@ -68,16 +75,23 @@ export function createEmailLimiter(options?: RateLimitOptions) {
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
-      // Extract the normalized email from the request body
-      // The loginSchema already validates and normalizes it
+      // Extract the normalized email from the request body.
+      // The loginSchema already validates and normalizes it.
+      // If email is not a string, fall back to IP and never throw.
       const email = typeof req.body?.email === 'string'
         ? req.body.email.trim().toLowerCase()
-        : 'unknown';
+        : req.ip || 'unknown';
       return email;
     },
     handler: (req, res) =>
       rateLimitHandler(req, res, 'Too many failed login attempts for this email. Please try again later.'),
-    skip: () => config.nodeEnv === 'test' && !options, // Skip limiting in test mode unless explicitly configured
+    skip: (req, res) => {
+      // Skip rate limiting only in test mode and no custom options were provided
+      if (config.nodeEnv === 'test' && !options) {
+        return true;
+      }
+      return false;
+    },
     skipSuccessfulRequests: true, // Only count failed attempts
   });
 }
