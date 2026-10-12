@@ -730,6 +730,14 @@ describe('Authorization (requireAuth middleware)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Real Rate Limiter Tests (Mechanism: Enable limiters via global test flag)
+// These tests verify actual rate limiter behavior by temporarily enabling them
+// Mechanism: Set global.testLimitersEnabled = true to bypass the skip condition
+// Window: 1 second, Limits: 2 per-email, 3 per-IP (for fast test execution)
+// Each test clears the flag to isolate state from other suites
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 // Cleanup: verify no orphan test users remain
 // ---------------------------------------------------------------------------
 

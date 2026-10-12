@@ -45,7 +45,6 @@ export function createAuthLimiter(options?: RateLimitOptions) {
     handler: (req, res) =>
       rateLimitHandler(req, res, 'Too many authentication attempts from this IP address. Please try again later.'),
     skip: (req, res) => {
-      // Skip rate limiting only in test mode and no custom options were provided
       if (config.nodeEnv === 'test' && !options) {
         return true;
       }
@@ -67,10 +66,12 @@ export function createAuthLimiter(options?: RateLimitOptions) {
  */
 export function createEmailLimiter(options?: RateLimitOptions) {
   const windowMs = options?.windowMs ?? 15 * 60 * 1000; // 15 minutes
-  const max = options?.max ?? config.rateLimitEmailAttemptsPerWindow;
+  // If testLimitConfig is set globally, use its max; otherwise use default or options.max
+  const testConfig = (global as any).testLimitConfig;
+  const max = testConfig?.max ?? options?.max ?? config.rateLimitEmailAttemptsPerWindow;
 
   return rateLimit({
-    windowMs,
+    windowMs: testConfig?.windowMs ?? windowMs,
     max,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
@@ -86,9 +87,12 @@ export function createEmailLimiter(options?: RateLimitOptions) {
     handler: (req, res) =>
       rateLimitHandler(req, res, 'Too many failed login attempts for this email. Please try again later.'),
     skip: (req, res) => {
-      // Skip rate limiting only in test mode and no custom options were provided
+      // Skip rate limiting in test mode UNLESS testLimitersEnabled flag is set
+      if ((global as any).testLimitersEnabled) {
+        return false; // Do NOT skip - enable the limiter
+      }
       if (config.nodeEnv === 'test' && !options) {
-        return true;
+        return true; // Skip in test mode (default behavior)
       }
       return false;
     },
