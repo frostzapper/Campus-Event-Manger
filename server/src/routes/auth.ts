@@ -14,14 +14,22 @@ const JWT_EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
 
 // Generate a dummy hash at startup for login timing attack mitigation
 // Used when email does not exist so response time doesn't reveal account existence
-let dummyHash: string;
-bcrypt.hash('dummy', config.bcryptCost).then((hash) => {
-  dummyHash = hash;
-});
+let dummyHashPromise: Promise<void>;
+let dummyHash: string = '';
+
+async function initDummyHash(): Promise<void> {
+  dummyHash = await bcrypt.hash('dummy', config.bcryptCost);
+}
+
+// Start initialization immediately
+dummyHashPromise = initDummyHash();
 
 authRouter.post(
   '/login',
   asyncHandler(async (req: Request, res: Response) => {
+    // Ensure dummy hash is ready before processing login
+    await dummyHashPromise;
+
     const validation = loginSchema.safeParse(req.body);
     if (!validation.success) {
       res.status(400).json({ message: 'Validation failed', issues: validation.error.flatten() });
@@ -37,7 +45,7 @@ authRouter.post(
     let passwordValid = false;
     if (student) {
       passwordValid = await bcrypt.compare(password, student.passwordHash);
-    } else if (dummyHash) {
+    } else {
       // Run bcrypt against dummy hash even if user doesn't exist
       // to avoid timing attacks that reveal whether an email is registered
       await bcrypt.compare(password, dummyHash);
@@ -83,8 +91,11 @@ authRouter.post(
     }
 
     const passwordHash = await bcrypt.hash(password, config.bcryptCost);
-    // User IDs: new users get "student-" prefix + UUID. Existing ids may use
-    // the legacy format "student-<9 random chars>". Both formats are valid.
+    // User IDs: new users are "student-" followed by a 36-character UUID (e.g., student-a1b2c3d4-...).
+    // Existing IDs use the legacy format: "student-" followed by 1-9 random characters (e.g., student-abc123).
+    // Hand-written seed IDs like "student-dev-lead" or "student-campus-org" are also valid.
+    // Both formats authenticate identically. Route-parameter validation in a later phase must accept
+    // all three formats and must not assume a fixed length.
     const studentId = 'student-' + randomUUID();
 
     let user;
