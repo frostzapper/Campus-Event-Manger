@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { AuthSession } from '@campus-event-finder/shared';
 import { prisma } from '../lib/prisma';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -81,7 +82,6 @@ authRouter.post(
       return;
     }
 
-    const { randomUUID } = await import('crypto');
     const passwordHash = await bcrypt.hash(password, config.bcryptCost);
     // User IDs: new users get "student-" prefix + UUID. Existing ids may use
     // the legacy format "student-<9 random chars>". Both formats are valid.
@@ -109,9 +109,11 @@ authRouter.post(
         }),
       ]);
     } catch (err) {
-      // If the email unique constraint was violated, return 409
-      // Any other database error is a server error
-      if (err instanceof Error && err.message.includes('Unique constraint failed')) {
+      // If the email unique constraint was violated, return 409.
+      // Prisma throws PrismaClientKnownRequestError with code P2002 for unique violations.
+      // Check both the code and the target field to ensure it's the email constraint.
+      const isPrismaError = err && typeof err === 'object' && 'code' in err && 'meta' in err;
+      if (isPrismaError && (err as any).code === 'P2002' && (err as any).meta?.target?.includes('email')) {
         res.status(409).json({ message: 'An account with this email already exists' });
         return;
       }

@@ -176,6 +176,17 @@ describe('loginSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('trims and lowercases email', () => {
+    const result = loginSchema.safeParse({
+      email: '  TEST@EXAMPLE.COM  ',
+      password: 'password123',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe('test@example.com');
+    }
+  });
+
   it('accepts email without format validation', () => {
     const result = loginSchema.safeParse({
       email: 'not-a-valid-email',

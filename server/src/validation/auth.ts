@@ -40,7 +40,7 @@ export type RegisterInput = z.infer<typeof registerSchema>;
  * - password: any non-empty string (existing users may have any password)
  */
 export const loginSchema = z.object({
-  email: z.string().min(1, 'email must not be empty'),
+  email: z.string().trim().toLowerCase().min(1, 'email must not be empty'),
   password: z.string().min(1, 'password must not be empty'),
 });
 
