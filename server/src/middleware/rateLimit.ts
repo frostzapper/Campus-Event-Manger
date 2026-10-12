@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { MemoryStore } from 'express-rate-limit';
 import { Request, Response } from 'express';
 import { config } from '../config/env';
 
@@ -17,6 +17,20 @@ export interface RateLimitOptions {
   windowMs?: number;
   max?: number;
 }
+
+/**
+ * Test control flag for rate limiters.
+ * When forceEnabled is true, rate limiters are NOT skipped in NODE_ENV=test.
+ * This allows tests to verify limiter behavior.
+ */
+export const limiterTestControl = { forceEnabled: false };
+
+/**
+ * Exported MemoryStore instances for test manipulation.
+ * Tests can call resetKey() on these stores to reset rate limit counters.
+ */
+export const authLimiterStore = new MemoryStore();
+export const emailLimiterStore = new MemoryStore();
 
 /**
  * Custom handler for rate limit responses.
@@ -40,12 +54,13 @@ export function createAuthLimiter(options?: RateLimitOptions) {
   return rateLimit({
     windowMs,
     max,
+    store: authLimiterStore,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     handler: (req, res) =>
       rateLimitHandler(req, res, 'Too many authentication attempts from this IP address. Please try again later.'),
     skip: (req, res) => {
-      if (config.nodeEnv === 'test' && !options) {
+      if (config.nodeEnv === 'test' && !limiterTestControl.forceEnabled) {
         return true;
       }
       return false;
@@ -66,13 +81,12 @@ export function createAuthLimiter(options?: RateLimitOptions) {
  */
 export function createEmailLimiter(options?: RateLimitOptions) {
   const windowMs = options?.windowMs ?? 15 * 60 * 1000; // 15 minutes
-  // If testLimitConfig is set globally, use its max; otherwise use default or options.max
-  const testConfig = (global as any).testLimitConfig;
-  const max = testConfig?.max ?? options?.max ?? config.rateLimitEmailAttemptsPerWindow;
+  const max = options?.max ?? config.rateLimitEmailAttemptsPerWindow;
 
   return rateLimit({
-    windowMs: testConfig?.windowMs ?? windowMs,
+    windowMs,
     max,
+    store: emailLimiterStore,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
@@ -87,12 +101,8 @@ export function createEmailLimiter(options?: RateLimitOptions) {
     handler: (req, res) =>
       rateLimitHandler(req, res, 'Too many failed login attempts for this email. Please try again later.'),
     skip: (req, res) => {
-      // Skip rate limiting in test mode UNLESS testLimitersEnabled flag is set
-      if ((global as any).testLimitersEnabled) {
-        return false; // Do NOT skip - enable the limiter
-      }
-      if (config.nodeEnv === 'test' && !options) {
-        return true; // Skip in test mode (default behavior)
+      if (config.nodeEnv === 'test' && !limiterTestControl.forceEnabled) {
+        return true; // Skip in test mode unless forceEnabled is true
       }
       return false;
     },

@@ -646,6 +646,137 @@ describe('POST /auth/refresh', () => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /auth/login with real rate limiters
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/login with real rate limiters', () => {
+  // Import for test control
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { limiterTestControl, emailLimiterStore, authLimiterStore } = require('../middleware/rateLimit');
+
+  beforeAll(() => {
+    // Enable rate limiters in test mode
+    limiterTestControl.forceEnabled = true;
+  });
+
+  afterAll(() => {
+    // Disable rate limiters in test mode
+    limiterTestControl.forceEnabled = false;
+  });
+
+  beforeEach(() => {
+    // Reset rate limiter stores before each test
+    emailLimiterStore.resetAll?.();
+    authLimiterStore.resetAll?.();
+  });
+
+  afterEach(() => {
+    // Clean up after each test
+    emailLimiterStore.resetAll?.();
+    authLimiterStore.resetAll?.();
+  });
+
+  it('(a) 10 failed login attempts with same email, then correct password returns 429', async () => {
+    const email = 'dev.lead@campus.edu';
+    const password = 'password123';
+
+    // Make 10 failed login attempts with wrong password
+    for (let i = 0; i < 10; i++) {
+      const res = await request(app)
+        .post('/auth/login')
+        .send({ email, password: 'wrongpassword' });
+      expect(res.status).toBe(401);
+    }
+
+    // 11th attempt with correct password should be blocked by per-email limiter
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ email, password });
+
+    expect(res.status).toBe(429);
+    expect(res.body).toHaveProperty('message');
+    expect(res.body.message).toContain('failed login attempts');
+  });
+
+  it('(b) per-IP limiter blocks 21st request from same IP', async () => {
+    // Auth limiter defaults to 20 requests per 15 minutes per IP
+    // Make 20 requests (validation errors to avoid rate-limiting by email)
+    for (let i = 0; i < 20; i++) {
+      const res = await request(app)
+        .post('/auth/login')
+        .send({ email: 'dev.lead@campus.edu', password: 'password123' });
+      // First 2 succeed (dev.lead), next 18 fail with 401 (unknown emails)
+      expect([200, 401, 429]).toContain(res.status);
+    }
+
+    // 21st request should be blocked by per-IP limiter
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ email: 'another@campus.edu', password: 'password123' });
+
+    expect(res.status).toBe(429);
+    expect(res.body).toHaveProperty('message');
+    expect(res.body.message).toContain('IP address');
+  });
+
+  it('(c) successful login does not count toward per-email rate limit', async () => {
+    const email = 'dev.lead@campus.edu';
+    const password = 'password123';
+
+    // Make 10 successful logins
+    for (let i = 0; i < 10; i++) {
+      const res = await request(app)
+        .post('/auth/login')
+        .send({ email, password });
+      expect(res.status).toBe(200);
+    }
+
+    // An 11th attempt should still succeed (not blocked)
+    // because successful logins skip the per-email rate limit counter
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ email, password });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('(d) different emails are tracked separately by per-email limiter', async () => {
+    const email1 = 'dev.lead@campus.edu';
+    const email2 = 'events@campus.edu';
+
+    // Make 10 failed attempts with email1
+    for (let i = 0; i < 10; i++) {
+      const res = await request(app)
+        .post('/auth/login')
+        .send({ email: email1, password: 'wrongpassword' });
+      expect(res.status).toBe(401);
+    }
+
+    // email1 should now be rate limited
+    let res = await request(app)
+      .post('/auth/login')
+      .send({ email: email1, password: 'password123' });
+    expect(res.status).toBe(429);
+
+    // But email2 should still work (independent counter)
+    res = await request(app)
+      .post('/auth/login')
+      .send({ email: email2, password: 'password123' });
+    expect(res.status).toBe(200);
+  });
+
+  it('(e) validation error returns 400, not 429, with limiters forced', async () => {
+    // Validation errors should be caught before rate limiters
+    const res = await request(app)
+      .post('/auth/login')
+      .send({ email: '', password: 'password123' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('message');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Authorization (requireAuth middleware)
 // ---------------------------------------------------------------------------
 

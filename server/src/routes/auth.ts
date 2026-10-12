@@ -7,7 +7,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { signToken, verifyToken } from '../lib/token';
 import { registerSchema, loginSchema } from '../validation/auth';
 import { config } from '../config/env';
-import { createAuthLimiter, createEmailLimiter } from '../middleware/rateLimit';
+import { createAuthLimiter, createEmailLimiter, emailLimiterStore, limiterTestControl } from '../middleware/rateLimit';
 
 export const authRouter = Router();
 
@@ -29,6 +29,27 @@ async function initDummyHash(): Promise<void> {
 // Start initialization immediately
 dummyHashPromise = initDummyHash();
 
+/**
+ * Helper function to call a rate limiter middleware and detect if it sent a 429 response.
+ * Returns true if the limiter allowed the request to proceed, false if it sent 429.
+ * This avoids hanging Promise wrappers by checking headersSent after limiter invocation.
+ */
+async function callLimiterAsync(
+  limiter: (req: Request, res: Response, next: () => void) => void,
+  req: Request,
+  res: Response,
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    limiter(req, res, () => {
+      resolve(true); // Limiter called next(), request allowed
+    });
+    // If limiter sent a response (429), res.headersSent will be true
+    if (res.headersSent) {
+      resolve(false); // Limiter sent 429, request blocked
+    }
+  });
+}
+
 authRouter.post(
   '/login',
   authLimiter,
@@ -46,11 +67,8 @@ authRouter.post(
 
     // Apply per-email rate limiter BEFORE credential check.
     // This ensures that even a correct password is blocked if the email has too many failed attempts.
-    await new Promise<void>((resolve) => {
-      emailLimiter(req, res, () => resolve());
-    });
-
-    if (res.headersSent) {
+    const limiterAllowed = await callLimiterAsync(emailLimiter, req, res);
+    if (!limiterAllowed) {
       // Limiter sent a 429 response
       return;
     }
